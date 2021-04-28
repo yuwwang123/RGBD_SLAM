@@ -10,8 +10,8 @@
     </camera>
     <ransac>
         <max_iter>20</max_iter>
-        <min_dist_thresh>0.04</min_dist_thresh>
-        <max_dist_thresh>0.12</max_dist_thresh>
+        <dist_thresh_low>0.03</dist_thresh_low>
+        <dist_thresh_high>0.12</dist_thresh_high>
     </ransac>
     <icp>
         <max_iter>0</max_iter>
@@ -20,13 +20,16 @@
     </icp>
     <config>
         <run_mode>0</run_mode>
-        <frame_skip>8</frame_skip>
-        <start_frame>610</start_frame>
-        <end_frame>750</end_frame>
+        <frame_skip>3</frame_skip>
+        <start_frame>0</start_frame>
+        <end_frame>1300</end_frame>
 
-        <min_matches_required>70</min_matches_required>
+        <min_matches_required>30</min_matches_required>
         <downsample_grid_size>0.01</downsample_grid_size>
         <data_root>/home/yuwei/Documents/sensor_fusion_projects/rgbd_mapping/data/rgbd_dataset_freiburg1_room/</data_root>
     </config>
+    <SLAM>
+        <num_neighboring_edges>2</num_neighboring_edges>
+    </SLAM>
 
 </params>

@@ -34,9 +34,11 @@ Parameters::Parameters(const std::string& config_filename) :
         data_root(getValueFromFile<std::string>(config_filename, "params.config.data_root")),
 
         ransac_max_iter(getValueFromFile<int>(config_filename, "params.ransac.max_iter")),
-        ransac_min_dist_thresh(getValueFromFile<float>(config_filename, "params.ransac.min_dist_thresh")),
-        ransac_max_dist_thresh(getValueFromFile<float>(config_filename, "params.ransac.max_dist_thresh")),
+        ransac_dist_thresh_low(getValueFromFile<float>(config_filename, "params.ransac.dist_thresh_low")),
+        ransac_dist_thresh_high(getValueFromFile<float>(config_filename, "params.ransac.dist_thresh_high")),
 
         icp_max_iter(getValueFromFile<int>(config_filename, "params.ransac.max_iter")),
-        icp_max_correspondence_dist(getValueFromFile<float>(config_filename, "params.icp.max_correspondence_dist"))
+        icp_max_correspondence_dist(getValueFromFile<float>(config_filename, "params.icp.max_correspondence_dist")),
+
+        num_neighboring_edges(getValueFromFile<int>(config_filename, "params.SLAM.num_neighboring_edges"))
 {}

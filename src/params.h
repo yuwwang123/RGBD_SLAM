@@ -22,8 +22,8 @@ struct Parameters{
     const int end_frame;
 
     const int ransac_max_iter;
-    const float ransac_min_dist_thresh;
-    const float ransac_max_dist_thresh;
+    const float ransac_dist_thresh_low;
+    const float ransac_dist_thresh_high;
 
     const int min_matches_required;
     const float downsample_grid_size;
@@ -31,6 +31,8 @@ struct Parameters{
     const int icp_max_iter;
     const float icp_max_correspondence_dist;
     const std::string data_root;
+
+    const int num_neighboring_edges;
 
     Parameters(const std::string& config_filename);
 
