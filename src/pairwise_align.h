@@ -125,29 +125,7 @@ void perform_RANSAC_Alignment(const std::vector<cv::KeyPoint>& keypoints1,
     svd.estimateRigidTransformation(feature_cloud1, feature_cloud2, Transformation);
 
 };
-//
-//void showCloudsRight(const pcl::PointCloud<PointRGBT>::Ptr cloud_target, const pcl::PointCloud<PointRGBT>::Ptr cloud_source)
-//{
-//    viewer->removePointCloud ("source");
-//    viewer->removePointCloud ("target");
-//
-//    viewer->addPointCloud (cloud_target, "target", vp_2);
-//    viewer->addPointCloud (cloud_source, "source", vp_2);
-//
-//    viewer->spinOnce();
-//}
-//
-//void showCloudsLeft(const pcl::PointCloud<PointRGBT>::Ptr cloud_target, const pcl::PointCloud<PointRGBT>::Ptr cloud_source)
-//{
-//    viewer->removePointCloud ("vp1_target");
-//    viewer->removePointCloud ("vp1_source");
-//
-//    viewer->addPointCloud (cloud_target, "vp1_target", vp_1);
-//    viewer->addPointCloud (cloud_source, "vp1_source", vp_1);
-//
-//    PCL_INFO ("Press q to begin the registration.\n");
-//    viewer-> spin();
-//}
+
 
 bool pairAlign(const cv::Mat& rgb_img1,
                const cv::Mat& rgb_img2,
