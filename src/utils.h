@@ -34,12 +34,12 @@ struct Frame{
     Eigen::Isometry3f pose;
     int id;
     int file_id;
+    bool is_keyframe = false;
 };
 
 PointT pixelTo3DCoord(const cv::Point2f pixel_coord, const cv::Mat& depth_img, bool switch_xy = false);
 
-//template <typename T>
-std::vector<cv::DMatch> sampleSubset(const std::vector<cv::DMatch>& input, const int& subset_size);
+std::vector<int> sampleSubset(const int& total_size, const int& subset_size);
 
 void createPointCloudFromRGBD(const cv::Mat& rgb_image, const cv::Mat& depth_image, pcl::PointCloud<PointRGBT>::Ptr& output_cloud);
 

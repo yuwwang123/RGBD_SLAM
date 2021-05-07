@@ -42,6 +42,8 @@ class RgbdSLAM {
     g2o::RobustKernel* kernel_ptr_;
 
     std::vector<Frame> all_frames_;
+    std::vector<Frame> keyframes_;
+
     std::vector<pcl::PointCloud<PointRGBT>::Ptr> all_clouds_;
 
     Frame prev_frame_;
@@ -75,11 +77,20 @@ public:
                         Eigen::Matrix4f& transform,
                         const bool apply_icp = false);
 
+
+    bool isNewKeyframe(const Frame& prev_keyframe, const Frame& curr_frame);
+
+    int checkLoopClosure(const Frame& curr_keyframe);
+
     void addNeighboringConstraints(const Frame& current_frame);
 
     void optimizePoseGraph();
 
     void visualizeResultMap();
+
+    void visualizeKeyframeMap();
+
+    void createPointCloudFromFile(const int& file_id, pcl::PointCloud<PointRGBT>::Ptr& output_cloud);
 
     void drawMatches(const cv::Mat& img1, const cv::Mat& img2, const Frame& frame1, const Frame& frame2, const std::vector<cv::DMatch>& matches);
 };

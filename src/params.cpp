@@ -40,5 +40,7 @@ Parameters::Parameters(const std::string& config_filename) :
         icp_max_iter(getValueFromFile<int>(config_filename, "params.ransac.max_iter")),
         icp_max_correspondence_dist(getValueFromFile<float>(config_filename, "params.icp.max_correspondence_dist")),
 
-        num_neighboring_edges(getValueFromFile<int>(config_filename, "params.SLAM.num_neighboring_edges"))
+        num_neighboring_edges(getValueFromFile<int>(config_filename, "params.SLAM.num_neighboring_edges")),
+        keyframe_thresh(getValueFromFile<int>(config_filename, "params.SLAM.keyframe_thresh")),
+        num_loop_closure_frames(getValueFromFile<int>(config_filename, "params.SLAM.num_loop_closure_frames"))
 {}

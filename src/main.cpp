@@ -34,8 +34,9 @@ int main(int argc, const char* argv[])
     for(int i=0; i<rgb_files.size(); ++i){
         slam.run();
     }
-//    slam.optimizePoseGraph();
-    slam.visualizeResultMap();
+    slam.optimizePoseGraph();
+//    slam.visualizeResultMap();
+    slam.visualizeKeyframeMap();
 
 
     return 0;

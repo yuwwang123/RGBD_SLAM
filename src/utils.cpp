@@ -27,16 +27,15 @@ PointT pixelTo3DCoord(const cv::Point2f pixel_coord, const cv::Mat& depth_img, b
 }
 
 
-//template <typename T>
-std::vector<cv::DMatch> sampleSubset(const std::vector<cv::DMatch>& input, const int& subset_size){
-    std::vector<int> indices(input.size());
+std::vector<int> sampleSubset(const int& total_size, const int& subset_size){
+    if (total_size < subset_size) {
+        return std::vector<int>();
+    }
+    std::vector<int> indices(total_size);
     std::iota(indices.begin(), indices.end(), 0);
     std::random_shuffle(indices.begin(), indices.end());
 
-    std::vector<cv::DMatch> subset;
-    for (size_t i=0; i<subset_size; ++i){
-        subset.push_back(input[indices[i]]);
-    }
+    std::vector<int> subset(indices.begin(), indices.begin()+subset_size);
     return subset;
 }
 

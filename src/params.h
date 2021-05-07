@@ -33,6 +33,8 @@ struct Parameters{
     const std::string data_root;
 
     const int num_neighboring_edges;
+    const int keyframe_thresh;
+    const int num_loop_closure_frames;
 
     Parameters(const std::string& config_filename);
 

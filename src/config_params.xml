@@ -22,14 +22,16 @@
         <run_mode>0</run_mode>
         <frame_skip>3</frame_skip>
         <start_frame>0</start_frame>
-        <end_frame>1300</end_frame>
+        <end_frame>1350</end_frame>
 
         <min_matches_required>30</min_matches_required>
         <downsample_grid_size>0.01</downsample_grid_size>
         <data_root>/home/yuwei/Documents/sensor_fusion_projects/rgbd_mapping/data/rgbd_dataset_freiburg1_room/</data_root>
     </config>
     <SLAM>
-        <num_neighboring_edges>2</num_neighboring_edges>
+        <num_neighboring_edges>3</num_neighboring_edges>
+        <keyframe_thresh>10</keyframe_thresh>
+        <num_loop_closure_frames>10</num_loop_closure_frames>
     </SLAM>
 
 </params>
