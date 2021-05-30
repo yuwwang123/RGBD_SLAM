@@ -67,7 +67,7 @@ public:
 
     std::vector<cv::DMatch> findMatches(const Frame& frame1, const Frame& frame2);
 
-    std::vector<cv::DMatch> performRANSAC(const Frame& frame1, const Frame& frame2, const std::vector<cv::DMatch>& matches);
+    std::vector<cv::DMatch> performRANSAC(const Frame& frame1, const Frame& frame2, const std::vector<cv::DMatch>& matches, const bool loop_closure=false);
 
     Eigen::Matrix4f estimatePairTransform(const Frame& frame1, const Frame& frame2, const std::vector<cv::DMatch> matches);
 
@@ -80,15 +80,20 @@ public:
 
     bool isNewKeyframe(const Frame& prev_keyframe, const Frame& curr_frame);
 
+    bool checkDistancePreserved(const Frame& frame1, const Frame& frame2, std::vector<cv::DMatch> matches);
+
     int checkLoopClosure(const Frame& curr_keyframe);
+
+    int searchMoreLoopClosures(const int loc1, const int loc2);
 
     void addNeighboringConstraints(const Frame& current_frame);
 
     void optimizePoseGraph();
 
-    void visualizeResultMap();
+    void visualizeWholeMap();
 
     void visualizeKeyframeMap();
+
 
     void createPointCloudFromFile(const int& file_id, pcl::PointCloud<PointRGBT>::Ptr& output_cloud);
 

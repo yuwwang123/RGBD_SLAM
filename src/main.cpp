@@ -16,8 +16,18 @@ const Parameters params("/home/yuwei/Documents/sensor_fusion_projects/rgbd_mappi
 
 int main(int argc, const char* argv[])
 {
-    vector<string> all_rgb_files = getAllFiles(params.data_root+"rgb.txt");
-    vector<string> all_depth_files = getAllFiles(params.data_root+"depth.txt");
+    vector<string> all_rgb_files, all_depth_files;
+    vector<double> rgb_ts, depth_ts;
+
+    getAllFiles(params.data_root+"rgb.txt", all_rgb_files, rgb_ts);
+    getAllFiles(params.data_root+"depth.txt", all_depth_files, depth_ts);
+
+    if (all_rgb_files.size() < all_depth_files.size()){
+        all_depth_files = getTimeMatchedFiles(all_rgb_files, all_depth_files, rgb_ts, depth_ts);
+    }
+    else{
+        all_rgb_files = getTimeMatchedFiles(all_depth_files, all_rgb_files, depth_ts, rgb_ts);
+    }
 
     vector<string> rgb_files, depth_files;
     int idx = params.start_frame;
@@ -33,10 +43,12 @@ int main(int argc, const char* argv[])
 
     for(int i=0; i<rgb_files.size(); ++i){
         slam.run();
+//        slam.visualizeResultMap();
     }
     slam.optimizePoseGraph();
 //    slam.visualizeResultMap();
     slam.visualizeKeyframeMap();
+//    slam.visualizeWholeMap();
 
 
     return 0;

@@ -5,33 +5,34 @@
         <cx>319.5</cx>
         <cy>239.5</cy>
         <factor>5000.0</factor>
-        <min_depth>0.6</min_depth>
+        <min_depth>0.5</min_depth>
         <max_depth>4.0</max_depth>
     </camera>
     <ransac>
         <max_iter>20</max_iter>
-        <dist_thresh_low>0.03</dist_thresh_low>
-        <dist_thresh_high>0.12</dist_thresh_high>
+        <dist_thresh_low>0.1</dist_thresh_low>
+        <dist_thresh_high>0.22</dist_thresh_high>
     </ransac>
     <icp>
         <max_iter>0</max_iter>
-        <max_correspondence_dist>0.2</max_correspondence_dist>
+        <max_correspondence_dist>0.22</max_correspondence_dist>
         <apply_icp>true</apply_icp>
     </icp>
     <config>
         <run_mode>0</run_mode>
         <frame_skip>3</frame_skip>
         <start_frame>0</start_frame>
-        <end_frame>1350</end_frame>
+        <end_frame>21500</end_frame>
 
-        <min_matches_required>30</min_matches_required>
+        <min_matches_required>15</min_matches_required>
         <downsample_grid_size>0.01</downsample_grid_size>
-        <data_root>/home/yuwei/Documents/sensor_fusion_projects/rgbd_mapping/data/rgbd_dataset_freiburg1_room/</data_root>
+        <data_root>/home/yuwei/Documents/sensor_fusion_projects/rgbd_mapping/data/rgbd_dataset_freiburg3_long_office_household/</data_root>
     </config>
     <SLAM>
-        <num_neighboring_edges>3</num_neighboring_edges>
+        <num_neighboring_edges>0</num_neighboring_edges>
         <keyframe_thresh>10</keyframe_thresh>
-        <num_loop_closure_frames>10</num_loop_closure_frames>
+        <num_loop_closure_frames>30</num_loop_closure_frames>
+        <lc_dist_thresh>0.18</lc_dist_thresh>
     </SLAM>
 
 </params>

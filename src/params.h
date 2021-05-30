@@ -35,6 +35,7 @@ struct Parameters{
     const int num_neighboring_edges;
     const int keyframe_thresh;
     const int num_loop_closure_frames;
+    const float lc_dist_thresh;
 
     Parameters(const std::string& config_filename);
 

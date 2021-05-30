@@ -45,9 +45,26 @@ void createPointCloudFromRGBD(const cv::Mat& rgb_image, const cv::Mat& depth_ima
 
 void downSampleCloud(pcl::PointCloud<PointRGBT>& cloud, float leaf_size = 0.05);
 
-//template <typename T>
-void statisticalFilter(pcl::PointCloud<PointRGBT>& cloud);
+template <typename T>
+void statisticalFilter(pcl::PointCloud<T>& cloud){
+    // compute an average distance to k nearest neighbors for EACH point (di)
+    // Assume all di's form a Gaussian distribution with mean and std,
+    // remove every point with di > 1.0 * std from the mean
+    pcl::StatisticalOutlierRemoval<T> sor;
+    sor.setInputCloud(boost::make_shared<pcl::PointCloud<T>>(cloud));
 
-std::vector<std::string> getAllFiles(const std::string& path);
+    sor.setMeanK(50);
+    sor.setStddevMulThresh(1.0);
 
+    pcl::PointCloud<T> temp;
+    sor.filter(temp);
+    int num_removed = temp.size()-cloud.size();
+//    cout<<"num removed  "<< num_removed << std::endl;
+    cloud = temp;
+}
+
+void getAllFiles(const std::string& path, std::vector<std::string>& file_paths, std::vector<double>& timestamps);
+
+std::vector<std::string> getTimeMatchedFiles(const std::vector<std::string>& files1, const std::vector<std::string>& files2,
+                                             const std::vector<double>& ts1, const std::vector<double>& ts2);
 //void drawMatches(const cv::Mat& img1, const cv::Mat& img2, const Frame& frame1, const Frame& frame2, const std::vector<cv::DMatch>& matches);

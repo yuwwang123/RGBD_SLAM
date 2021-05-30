@@ -1,6 +1,3 @@
-//
-// Created by yuwei on 5/4/21.
-//
 
 #include "rgbd_slam.h"
 
@@ -19,7 +16,7 @@ RgbdSLAM::RgbdSLAM(const vector<string>& rgb_files,
         depth_files_(depth_files),
         cloud_accum_(new pcl::PointCloud<PointRGBT>()),
         viewer_( new pcl::visualization::PCLVisualizer("rgbd slam")),
-        kernel_ptr_(RobustKernelFactory::instance()->construct("Cauchy"))
+        kernel_ptr_(RobustKernelFactory::instance()->construct("Huber"))
 {
     assertm(rgb_files.size() == depth_files.size(), "must have equal number of rgb and depth frames! ");
 
@@ -71,13 +68,13 @@ RgbdSLAM::RgbdSLAM(const vector<string>& rgb_files,
     optimizer_.addVertex(v);
     all_frames_.push_back(prev_frame_);
     keyframes_.push_back(prev_frame_);
-    all_clouds_.push_back(cloud_accum_);
 
     prev_rgb_img_ = rgb_img;
     prev_cloud_ = cloud_accum_;
 
     cout<<"SLAM initialized ... "<<endl;
 }
+
 
 
 
@@ -105,7 +102,7 @@ void RgbdSLAM::run() {
     pcl::PointCloud<PointRGBT>::Ptr curr_cloud (new pcl::PointCloud<PointRGBT>());
     pcl::PointCloud<PointRGBT>::Ptr cloud_aligned_global (new pcl::PointCloud<PointRGBT>());
 
-    createPointCloudFromRGBD(rgb_img, depth_img, curr_cloud);
+//    createPointCloudFromRGBD(rgb_img, depth_img, curr_cloud);
 //    downSampleCloud(*curr_cloud, params.downsample_grid_size);
 //    statisticalFilter(*curr_cloud);
 
@@ -113,54 +110,53 @@ void RgbdSLAM::run() {
 
     curr_frame.pose = prev_frame_.pose * tf.inverse();
 
+    // Add to pose graph
+    VertexSE3* v = new VertexSE3();
+    v->setId(curr_frame.id);
+    Eigen::Isometry3d est = curr_frame.pose.cast<double>();
+//    est.rotate(Eigen::AngleAxisd(0.4*((double) rand()/(RAND_MAX)), Eigen::Vector3d(0.3,0.3,0.9)));
+//    est.pretranslate(Eigen::Vector3d(0.3*((double) rand()/(RAND_MAX)), -0.3*((double) rand()/(RAND_MAX)), 0.3*((double) rand()/(RAND_MAX))));
+    v->setEstimate(est);
+    optimizer_.addVertex(v);
+
+    EdgeSE3* e = new EdgeSE3();
+    e->vertices()[0] = optimizer_.vertex(prev_frame_.id);
+    e->vertices()[1] = optimizer_.vertex(curr_frame.id);
+    e->setInformation(Eigen::Matrix<double, 6, 6>::Identity());
+    Eigen::Isometry3d tf_iso; tf_iso = tf.cast<double>();
+    e->setMeasurement(tf_iso.inverse());
+//    e->setRobustKernel(kernel_ptr_);
+    optimizer_.addEdge(e);
+    cout<<"adding sequential edge between "<<prev_frame_.id << " and "<<curr_frame.id<<endl;
+
+    addNeighboringConstraints(curr_frame);
+
     if (isNewKeyframe(keyframes_.back(), curr_frame)){
         // set current frame to keyframe
         curr_frame.is_keyframe = true;
         // add as new vertex and add an edge to previous vertex/frame
-        VertexSE3* v = new VertexSE3();
-        v->setId(curr_frame.id);
-        // add some perturbations for testing how well g2o works
-        v->setEstimate(curr_frame.pose.cast<double>());
-//        v->setEstimate(curr_frame.pose.cast<double>().rotate(Eigen::AngleAxisd(0.5*((double) rand()/(RAND_MAX)), Eigen::Vector3d(0.3,0.3,0.9))));
-//    v->setEstimate(curr_frame.pose.cast<double>().pretranslate(Eigen::Vector3d(0.3*((double) rand()/(RAND_MAX)),
-//                                                                               -0.3*((double) rand()/(RAND_MAX)),
-//                                                                               0.3*((double) rand()/(RAND_MAX)))));
-        optimizer_.addVertex(v);
 
-        EdgeSE3* e = new EdgeSE3();
-        e->vertices()[0] = optimizer_.vertex(keyframes_.back().id);
-        e->vertices()[1] = optimizer_.vertex(curr_frame.id);
-        e->setInformation(Eigen::Matrix<double, 6, 6>::Identity());
-        Eigen::Isometry3d keyframe_tf;
-        keyframe_tf = (keyframes_.back().pose.inverse() * curr_frame.pose).cast<double>();  // T12 = T1.inverse() * T2
-        e->setMeasurement(keyframe_tf);
-
-        optimizer_.addEdge(e);
-        cout<<"adding sequential edge between "<<keyframes_.back().id << " and "<<curr_frame.id<<endl;
-
-        addNeighboringConstraints(curr_frame);
         int loop_closure_count = checkLoopClosure(curr_frame);
-        if (loop_closure_count > 0) cout << "Detected "<<loop_closure_count<<"loop closures !!"<<endl;
+        if (loop_closure_count > 0) cout << "Detected "<<loop_closure_count<<" loop closures !!"<<endl;
 
         keyframes_.push_back(curr_frame);
         cout << "Total num of keyframes so far "<<keyframes_.size()<<endl;
     }
 
     all_frames_.push_back(curr_frame);
-//    all_clouds_.push_back(curr_cloud);
 
     prev_frame_ = curr_frame;
     prev_rgb_img_ = rgb_img;
     prev_cloud_ = curr_cloud;
 
-    pcl::transformPointCloud(*curr_cloud, *cloud_aligned_global, curr_frame.pose.matrix());
-    *cloud_accum_ += *cloud_aligned_global;
+//    pcl::transformPointCloud(*curr_cloud, *cloud_aligned_global, curr_frame.pose.matrix());
+//    *cloud_accum_ += *cloud_aligned_global;
 
-    if (curr_frame.id % 10 ==0){
-        // downsample cloud only every 10 runs for efficiency
-        downSampleCloud(*cloud_accum_, params.downsample_grid_size);
-        statisticalFilter(*cloud_accum_);
-    }
+//    if (curr_frame.id % 10 ==0){
+//        // downsample cloud only every 10 runs for efficiency
+//        downSampleCloud(*cloud_accum_, params.downsample_grid_size);
+//        statisticalFilter(*cloud_accum_);
+//    }
 
 //    viewer_->addPointCloud(cloud_accum_, "cloud_accum");
 ////    viewer_->addCoordinateSystem(0.2, curr_frame.pose, to_string(curr_frame.id));
@@ -169,6 +165,8 @@ void RgbdSLAM::run() {
 
 }
 
+
+
 bool RgbdSLAM::isNewKeyframe(const Frame& prev_keyframe, const Frame& curr_frame){
     vector<DMatch> matches = findMatches(prev_keyframe, curr_frame);
     vector<DMatch> filtered_matches = performRANSAC(prev_keyframe, curr_frame, matches);
@@ -176,14 +174,14 @@ bool RgbdSLAM::isNewKeyframe(const Frame& prev_keyframe, const Frame& curr_frame
 }
 
 void RgbdSLAM::addNeighboringConstraints(const Frame& current_frame){
-    if (keyframes_.size()<2) return;
+    if (current_frame.id<2) return;
     // skip immediate predecessor since already formed edge
-    int idx = keyframes_[keyframes_.size()-2].id;
+    int idx =current_frame.id-2;
     for (int i=0; i<params.num_neighboring_edges; i++){
 
         if (idx < 0) return;
 
-        Frame neighbor_frame = keyframes_[idx];
+        Frame neighbor_frame = all_frames_[idx];
         vector<DMatch> matches = findMatches(neighbor_frame, current_frame);
         vector<DMatch> filtered_matches = performRANSAC(neighbor_frame, current_frame, matches);
 
@@ -199,8 +197,14 @@ void RgbdSLAM::addNeighboringConstraints(const Frame& current_frame){
             e->setMeasurement(tf_iso.inverse());
 //            e->setRobustKernel(kernel_ptr_);
             optimizer_.addEdge(e);
-            cout<<"adding neighboring edge between "<<neighbor_frame.id << " and "<<current_frame.id<<endl;
+//            cout<<"adding neighboring edge between "<<neighbor_frame.id << " and "<<current_frame.id<<endl;
 
+            if (checkDistancePreserved(neighbor_frame, current_frame, filtered_matches))  cout <<"Yes"<< endl;
+            else cout <<"No"<< endl;
+
+//            const Mat img1 = cv::imread(rgb_files_[neighbor_frame.file_id],  cv::ImreadModes::IMREAD_UNCHANGED);
+//            const Mat img2 = cv::imread(rgb_files_[current_frame.file_id],  cv::ImreadModes::IMREAD_UNCHANGED);
+//            drawMatches(img1, img2, neighbor_frame, current_frame, filtered_matches);
         }
         idx--;
     }
@@ -209,21 +213,28 @@ void RgbdSLAM::addNeighboringConstraints(const Frame& current_frame){
 int RgbdSLAM::checkLoopClosure(const Frame& curr_keyframe){
 
     // sample a few keyframes from all previous keyframes (except the most recent predecessors)
+    if (keyframes_.size()<= params.num_neighboring_edges) return 0;
     vector<int> sampled_indices = sampleSubset(keyframes_.size()-params.num_neighboring_edges,
                                                params.num_loop_closure_frames);
     if (sampled_indices.empty()) return 0;
     int loop_closure_count = 0;
 
-    for (const int& idx : sampled_indices){
-        cout <<"sample indices: "<< idx <<" ";
-    }
 
     for(const int& idx : sampled_indices){
         Frame keyframe = keyframes_[idx];
         vector<DMatch> matches = findMatches(keyframe, curr_keyframe);
-        vector<DMatch> filtered_matches = performRANSAC(keyframe, curr_keyframe, matches);
+        vector<DMatch> filtered_matches = performRANSAC(keyframe, curr_keyframe, matches, true);
 
         if (filtered_matches.size() >= params.min_matches_required){
+            bool dist_preserved = checkDistancePreserved(keyframe, curr_keyframe, filtered_matches);
+            cout <<"distanced preserved ? "<< dist_preserved<< endl;
+            // Draw matches for debugg
+            const Mat img1 = cv::imread(rgb_files_[keyframe.file_id],  cv::ImreadModes::IMREAD_UNCHANGED);
+            const Mat img2 = cv::imread(rgb_files_[curr_keyframe.file_id],  cv::ImreadModes::IMREAD_UNCHANGED);
+            drawMatches(img1, img2, keyframe, curr_keyframe, filtered_matches);
+
+            if (!dist_preserved)  continue;
+
             Eigen::Matrix4f tf = estimatePairTransform(keyframe, curr_keyframe, filtered_matches);
 
             EdgeSE3* e = new EdgeSE3();
@@ -233,15 +244,61 @@ int RgbdSLAM::checkLoopClosure(const Frame& curr_keyframe){
             Eigen::Isometry3d tf_iso; tf_iso = tf.cast<double>();
             e->setMeasurement(tf_iso.inverse());
 //            e->setRobustKernel(kernel_ptr_);
+
             optimizer_.addEdge(e);
             cout<<"Loop Closing !!! ******************************************************************** "<<endl;
             cout<<"adding loop closure edge between "<<keyframe.id << " and "<<curr_keyframe.id<<endl;
             loop_closure_count++;
+
+            //sample in neighborhood of the two
+            searchMoreLoopClosures(keyframe.id, curr_keyframe.id);
         }
     }
     return loop_closure_count;
 }
 
+
+int RgbdSLAM::searchMoreLoopClosures(const int loc1, const int loc2){
+    // sample in the neighborhood of the two locations
+    for (int i=0; i<10; i++){
+        int idx1 = max(loc1-5, 0) + (rand() % 10);
+        idx1 = min(idx1, int(all_frames_.size()-1));
+
+        int idx2 = max(loc2-10, 0) + (rand() % 10);
+        idx2 = min(idx2, int(all_frames_.size()-1));
+
+        Frame frame1 = all_frames_[idx1];
+        Frame frame2 = all_frames_[idx2];
+        vector<DMatch> matches = findMatches(frame1, frame2);
+        vector<DMatch> filtered_matches = performRANSAC(frame1, frame2, matches, true);
+
+        if (filtered_matches.size() >= params.min_matches_required) {
+            bool dist_preserved = checkDistancePreserved(frame1, frame2, filtered_matches);
+            cout << "distanced preserved ? " << dist_preserved << endl;
+
+            if (!dist_preserved){
+                const Mat img1 = cv::imread(rgb_files_[frame1.file_id], cv::ImreadModes::IMREAD_UNCHANGED);
+                const Mat img2 = cv::imread(rgb_files_[frame2.file_id], cv::ImreadModes::IMREAD_UNCHANGED);
+                drawMatches(img1, img2, frame1, frame2, filtered_matches);
+                continue;
+            }
+
+            Eigen::Matrix4f tf = estimatePairTransform(frame1, frame2, filtered_matches);
+
+            EdgeSE3 *e = new EdgeSE3();
+            e->vertices()[0] = optimizer_.vertex(frame1.id);
+            e->vertices()[1] = optimizer_.vertex(frame2.id);
+            e->setInformation(Eigen::Matrix<double, 6, 6>::Identity());
+            Eigen::Isometry3d tf_iso;
+            tf_iso = tf.cast<double>();
+            e->setMeasurement(tf_iso.inverse());
+//            e->setRobustKernel(kernel_ptr_);
+
+            optimizer_.addEdge(e);
+            cout << "More loop closing *******" << "between " << frame1.id << " and " << frame2.id << endl;
+        }
+    }
+}
 
 
 bool RgbdSLAM::readNextRGBDFrame(cv::Mat& rgb_img, cv::Mat& depth_img) {
@@ -305,8 +362,9 @@ vector<cv::DMatch> RgbdSLAM::findMatches(const Frame& frame1, const Frame& frame
 }
 
 vector<cv::DMatch> RgbdSLAM::performRANSAC(const Frame& frame1,
-                                                const Frame& frame2,
-                                                const vector<cv::DMatch>& matches)
+                                           const Frame& frame2,
+                                           const vector<cv::DMatch>& matches,
+                                           const bool loop_closure)
 {
     int max_inlier_count_so_far = 0;
     vector<cv::DMatch> filtered_matches;
@@ -314,10 +372,11 @@ vector<cv::DMatch> RgbdSLAM::performRANSAC(const Frame& frame1,
 
     for (size_t iter=0; iter<params.ransac_max_iter; ++iter){
         vector<int> sampled_indices = sampleSubset(matches.size(), 3);
-        if (sampled_indices.empty()) continue;
+        if (sampled_indices.size() < 3) continue;
         // Compute transform using this subset hypothesis
         pcl::PointCloud<PointT>::Ptr cloud_source (new pcl::PointCloud<PointT>);
         pcl::PointCloud<PointT>::Ptr cloud_target (new pcl::PointCloud<PointT>);
+
 
         for (const int& idx : sampled_indices){
             DMatch match = matches[idx];
@@ -340,10 +399,15 @@ vector<cv::DMatch> RgbdSLAM::performRANSAC(const Frame& frame1,
 //            cout<<"reprojection error: "<< pcl::euclideanDistance(p_source, p_aligned) <<endl;
 
             float temp = (p_source.z - params.min_depth)/(params.max_depth - params.min_depth);
-            const float dist_thresh_interp = params.ransac_dist_thresh_low
+            float dist_thresh_interp = params.ransac_dist_thresh_low
                                              + temp * (params.ransac_dist_thresh_high - params.ransac_dist_thresh_low);
 //            cout<<"dist thresh interp : "<<dist_thresh_interp<<endl;
-            if (pcl::euclideanDistance(p_source, p_aligned) < params.ransac_dist_thresh_low){
+            if (loop_closure) {
+                dist_thresh_interp = params.ransac_dist_thresh_low
+                                           + temp * (params.lc_dist_thresh - params.ransac_dist_thresh_low);
+            }
+
+            if (pcl::euclideanDistance(p_source, p_aligned) < dist_thresh_interp){
                 inliers.push_back(match);
             }
         }
@@ -375,14 +439,95 @@ Eigen::Matrix4f RgbdSLAM::estimatePairTransform(const Frame& frame1, const Frame
     Eigen::Matrix4f T;
     pcl::registration::TransformationEstimationSVD<PointT, PointT> svd;
     svd.estimateRigidTransformation(*cloud_source, *cloud_target, T);
+
+    Eigen::Affine3f affine; affine = T;
+
+    float error_sum = 0;
+    for (const auto& match : matches){
+        PointT p_source = frame1.keypoints3D[match.queryIdx];
+        PointT p_target = frame2.keypoints3D[match.trainIdx];
+
+        PointT p_aligned = pcl::transformPoint(p_target, affine.inverse());
+//            cout<<"reprojection error: "<< pcl::euclideanDistance(p_source, p_aligned) <<endl;
+
+        error_sum += pcl::euclideanDistance(p_source, p_aligned);
+    }
+//    cout << "mean transform error: " << error_sum/matches.size() <<endl;
     return T;
 }
+
+
+float getMeanDistToCentroid(const vector<PointT>& points){
+    Vector3F sum3d(0, 0, 0);
+    for (const auto &p : points) {
+        sum3d += Vector3F(p.x, p.y, p.z);
+    }
+    Vector3F centroid = sum3d / points.size();
+
+    float sum = 0;
+    for (const auto &p : points) {
+        sum += (Vector3F(p.x, p.y, p.z) - centroid).norm();
+    }
+    float mean_dist = sum/points.size();
+
+    return mean_dist;
+}
+
+bool RgbdSLAM::checkDistancePreserved(const Frame& frame1, const Frame& frame2, vector<DMatch> matches) {
+    // randomly select a few pairs and check if distance is preserved
+//    int bad_count = 0;
+//    for (int iter=0; iter < 15; iter++){
+//
+//        vector<int> subset = sampleSubset(matches.size(), 2);
+//        DMatch match1 = matches[subset[0]];
+//        DMatch match2 = matches[subset[1]];
+//        float dist1 = pcl::euclideanDistance(frame1.keypoints3D[match1.queryIdx],
+//                                             frame1.keypoints3D[match2.queryIdx]);
+//        float dist2 = pcl::euclideanDistance(frame2.keypoints3D[match1.trainIdx],
+//                                             frame2.keypoints3D[match2.trainIdx]);
+//
+//
+//        if (min(dist1, dist2)/max(dist1, dist2) <0.60){
+//
+//            if (dist1< 0.1 && dist2< 0.1) continue;
+//
+////            cout<<"dist1: "<<dist1<<" dist2: "<<dist2<<endl;
+////            cout<<"dist ratio"<<min(dist1, dist2)/max(dist1, dist2)<<endl;
+//            bad_count++;
+//        }
+//
+//        if (bad_count > 2) return false;
+//    }
+//    return true;
+    pcl::PointCloud<PointT>::Ptr pts1_cld (new pcl::PointCloud<PointT>());
+    pcl::PointCloud<PointT>::Ptr pts2_cld (new pcl::PointCloud<PointT>());
+
+    for(const auto& match : matches){
+        pts1_cld->push_back(frame1.keypoints3D[match.queryIdx]);
+        pts2_cld->push_back(frame2.keypoints3D[match.trainIdx]);
+    }
+    statisticalFilter(*pts1_cld);
+    statisticalFilter(*pts2_cld);
+
+    vector<PointT> pts1(pts1_cld->points.begin(), pts1_cld->points.end());
+    vector<PointT> pts2(pts2_cld->points.begin(), pts2_cld->points.end());
+
+    float mean_dist1 = getMeanDistToCentroid(pts1);
+    float mean_dist2 = getMeanDistToCentroid(pts2);
+//    cout<<"std1: "<<std1<<"   std2: "<<std2<<endl;
+    if (min(mean_dist1, mean_dist2)/max(mean_dist1, mean_dist2) < 0.8){
+        cout<<"ratio: "<<min(mean_dist1, mean_dist2)/max(mean_dist1, mean_dist2);
+    }
+    return min(mean_dist1, mean_dist2) / max(mean_dist1, mean_dist2) > 0.8;
+}
+
 
 void RgbdSLAM::optimizePoseGraph(){
     optimizer_.setVerbose(true);
     optimizer_.initializeOptimization();
     cerr<<"optimizing pose graph ... ..."<<endl;
-    optimizer_.optimize(30);
+    optimizer_.optimize(50);
+
 }
 
 void RgbdSLAM::pairAlignCloud(const pcl::PointCloud<PointRGBT>::Ptr& cloud1,
@@ -406,7 +551,7 @@ void RgbdSLAM::pairAlignCloud(const pcl::PointCloud<PointRGBT>::Ptr& cloud1,
         transform = icp.getFinalTransformation();
 
         cout << "converged " << icp.hasConverged() << " score: " <<
-                  icp.getFitnessScore() << endl;
+             icp.getFitnessScore() << endl;
     }
 
 
@@ -414,33 +559,72 @@ void RgbdSLAM::pairAlignCloud(const pcl::PointCloud<PointRGBT>::Ptr& cloud1,
 
 }
 
-void RgbdSLAM::visualizeResultMap() {
+
+
+void RgbdSLAM::visualizeWholeMap(){
 //    pcl::PointCloud<PointRGBT>::Ptr result (new pcl::PointCloud<PointRGBT>());
+//    for (auto& kf : keyframes_){
+//        int idx = kf.id + 1;
 //
-//    for (auto& frame : all_frames_){
-//        pcl::PointCloud<PointRGBT>::Ptr cld_transformed (new pcl::PointCloud<PointRGBT>());
-//
-//        VertexSE3* v = dynamic_cast<VertexSE3*>(optimizer_.vertex(frame.id));
+//        VertexSE3* v = dynamic_cast<VertexSE3*>(optimizer_.vertex(kf.id));
 //        if (!v) {
 //            cout<<"invalid vertex ..."<<endl;
 //            continue;
 //        }
+//        Eigen::Matrix4f kf_pose_new = v->estimate().matrix().cast<float>();
 //
-//        pcl::transformPointCloud(*all_clouds_[frame.id], *cld_transformed, v->estimate().matrix());
-//        *result += *cld_transformed;
+//        while (!all_frames_[idx].is_keyframe and idx < all_frames_.size()){
+//            pcl::PointCloud<PointRGBT>::Ptr cld (new pcl::PointCloud<PointRGBT>());
+//            pcl::PointCloud<PointRGBT>::Ptr cld_transformed (new pcl::PointCloud<PointRGBT>());
+//
+//            Eigen::Matrix4f T_new = kf_pose_new * (kf.pose.inverse() * all_frames_[idx].pose).matrix();
+//            createPointCloudFromFile(all_frames_[idx].file_id, cld);
+//            pcl::transformPointCloud(*cld, *cld_transformed, T_new);
+//            *result += *cld_transformed;
+//            idx++;
+//        }
 //        downSampleCloud(*result, params.downsample_grid_size);
+//        viewer_->addCoordinateSystem(0.1, v->estimate().cast<float>(), to_string(kf.id));
 //
-////        viewer_->addCoordinateSystem(0.1, v->estimate().cast<float>(), to_string(frame.id));
-//
+//        viewer_->addPointCloud(result, "whole_map");
+//        viewer_->spin();
+//        viewer_->removePointCloud("whole_map");
 //    }
-    cout<<"visualizing result map..."<<endl;
-    viewer_->addPointCloud(cloud_accum_, "accumulated_map");
+
+    pcl::PointCloud<PointRGBT>::Ptr result (new pcl::PointCloud<PointRGBT>());
+
+    for (int id=0; id<all_frames_.size(); id+= 5){
+        Frame f = all_frames_[id];
+        pcl::PointCloud<PointRGBT>::Ptr cld (new pcl::PointCloud<PointRGBT>());
+        pcl::PointCloud<PointRGBT>::Ptr cld_transformed (new pcl::PointCloud<PointRGBT>());
+
+        VertexSE3* v = dynamic_cast<VertexSE3*>(optimizer_.vertex(f.id));
+        if (!v) {
+            cout<<"invalid vertex ..."<<endl;
+            continue;
+        }
+
+        createPointCloudFromFile(f.file_id, cld);
+        pcl::transformPointCloud(*cld, *cld_transformed, v->estimate().matrix());
+        *result += *cld_transformed;
+
+//        if (count % 10 == 0) downSampleCloud(*result, params.downsample_grid_size);
+        viewer_->addCoordinateSystem(0.1, v->estimate().cast<float>(), to_string(f.id));
+    }
+
+    downSampleCloud(*result, params.downsample_grid_size);
+    cout<<"visualizing full map..."<<endl;
+    viewer_->addPointCloud(result, "keyframe_map");
 //    viewer_->addPointCloud(result, "optimized_map", vp2_);
 
     viewer_->spin();
-    viewer_->removePointCloud("accumulated_map");
-//    viewer_->removePointCloud("optimized_map");
-
+    viewer_->removePointCloud("full_map");
+    cout<<"visualizing result map..."<<endl;
+//    viewer_->addPointCloud(cloud_accum_, "accumulated_map");
+////    viewer_->addPointCloud(result, "optimized_map", vp2_);
+//
+//    viewer_->spin();
+//    viewer_->removePointCloud("accumulated_map");
 }
 
 void RgbdSLAM::visualizeKeyframeMap() {
@@ -461,11 +645,12 @@ void RgbdSLAM::visualizeKeyframeMap() {
         pcl::transformPointCloud(*cld, *cld_transformed, v->estimate().matrix());
         *result += *cld_transformed;
 
-        if (count % 10 == 0) downSampleCloud(*result, params.downsample_grid_size);
+//        if (count % 10 == 0) downSampleCloud(*result, params.downsample_grid_size);
         count++;
         viewer_->addCoordinateSystem(0.1, v->estimate().cast<float>(), to_string(kf.id));
     }
 
+    downSampleCloud(*result, params.downsample_grid_size);
     cout<<"visualizing keyframe map..."<<endl;
     viewer_->addPointCloud(result, "keyframe_map");
 //    viewer_->addPointCloud(result, "optimized_map", vp2_);

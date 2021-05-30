@@ -28,11 +28,13 @@ PointT pixelTo3DCoord(const cv::Point2f pixel_coord, const cv::Mat& depth_img, b
 
 
 std::vector<int> sampleSubset(const int& total_size, const int& subset_size){
-    if (total_size < subset_size) {
-        return std::vector<int>();
-    }
     std::vector<int> indices(total_size);
     std::iota(indices.begin(), indices.end(), 0);
+
+    if (total_size <= subset_size) {
+        return indices;
+    }
+
     std::random_shuffle(indices.begin(), indices.end());
 
     std::vector<int> subset(indices.begin(), indices.begin()+subset_size);
@@ -81,40 +83,43 @@ void downSampleCloud(pcl::PointCloud<PointRGBT>& cloud, float leaf_size){
 }
 
 
-//template <typename T>
-void statisticalFilter(pcl::PointCloud<PointRGBT>& cloud){
-    // compute an average distance to k nearest neighbors for EACH point (di)
-    // Assume all di's form a Gaussian distribution with mean and std,
-    // remove every point with di > 1.0 * std from the mean
-    pcl::StatisticalOutlierRemoval<PointRGBT> sor;
-    sor.setInputCloud(boost::make_shared<pcl::PointCloud<PointRGBT>>(cloud));
 
-    sor.setMeanK(50);
-    sor.setStddevMulThresh(1.0);
+void getAllFiles(const std::string& path, std::vector<std::string>& file_paths, std::vector<double>& timestamps){
 
-    pcl::PointCloud<PointRGBT> temp;
-    sor.filter(temp);
-//    int num_removed = temp.size()-cloud.size();
-//    cout<<"num removed  "<< num_removed << std::endl;
-    cloud = temp;
-}
-
-
-std::vector<std::string> getAllFiles(const std::string& path){
-
-    std::vector<std::string> file_paths;
     std::ifstream fs(path);
     std::string line;
 
     while (std::getline(fs, line)){
         if (line[0]=='#') continue;
         std::stringstream ss(line);
-        std::string temp, file_name;
-        getline(ss, temp, ' ');
+        std::string timestamp_str, file_name;
+        getline(ss, timestamp_str, ' ');
         getline(ss, file_name);
         file_paths.push_back(params.data_root+file_name);
+        timestamps.push_back(std::stod(timestamp_str));
     }
 
-    return file_paths;
 }
 
+std::vector<std::string> getTimeMatchedFiles(const std::vector<std::string>& files1, const std::vector<std::string>& files2,
+                     const std::vector<double>& ts1, const std::vector<double>& ts2){
+    assert(files1.size()<=files2.size());
+    std::vector<std::string> files2_new;
+
+    for (double t : ts1){
+        auto it = std::min_element(ts2.begin(),
+                                   ts2.end(),
+                                   [t](double a, double b){ return std::abs(t-a) < std::abs(t-b);});
+
+        std::cout<<t/1e9<<"   "<<*it/1e9<<std::endl;
+        files2_new.push_back(files2[std::distance(ts2.begin(), it)]);
+    }
+
+    assert(files1.size() == files2_new.size());
+
+    for (int i=0; i<files1.size(); i++){
+        std::cout<<files1[i]<<"    "<<files2_new[i]<<std::endl;
+    }
+
+    return files2_new;
+}

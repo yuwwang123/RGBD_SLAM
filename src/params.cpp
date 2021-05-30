@@ -42,5 +42,6 @@ Parameters::Parameters(const std::string& config_filename) :
 
         num_neighboring_edges(getValueFromFile<int>(config_filename, "params.SLAM.num_neighboring_edges")),
         keyframe_thresh(getValueFromFile<int>(config_filename, "params.SLAM.keyframe_thresh")),
-        num_loop_closure_frames(getValueFromFile<int>(config_filename, "params.SLAM.num_loop_closure_frames"))
+        num_loop_closure_frames(getValueFromFile<int>(config_filename, "params.SLAM.num_loop_closure_frames")),
+        lc_dist_thresh(getValueFromFile<float>(config_filename, "params.SLAM.lc_dist_thresh"))
 {}
